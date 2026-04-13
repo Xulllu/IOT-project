@@ -1,0 +1,79 @@
+#include <WiFi.h>
+#include "ESP32Firebase.h"
+
+// Define Firebase project configuration
+#define FIREBASE_HOST "https://voltage-and-current-sensor-led-default-rtdb.europe-west1.firebasedatabase.app"
+
+// Define analog pin for current sensor
+#define CURRENT_SENSOR_PIN 33
+
+// Define analog pin for voltage sensor
+#define VOLTAGE_SENSOR_PIN 35
+
+// Define pin for LED
+#define LED_PIN 26
+
+bool ledState = false; // Variable to track LED state
+
+// WiFi credentials
+const char* WIFI_SSID = "Mediasky Amel";
+const char* WIFI_PASSWORD = "Oklagija";
+
+// Define Firebase database paths
+#define DATABASE_PATH "/sensors/sensor1" // Adjust the path as needed
+
+// Initialize Firebase
+Firebase firebase(FIREBASE_HOST);
+
+void setup() {
+  Serial.begin(115200);
+
+  // Connect to Wi-Fi
+  connectToWiFi();
+
+  // Set analog pins as inputs
+  pinMode(CURRENT_SENSOR_PIN, INPUT);
+  pinMode(VOLTAGE_SENSOR_PIN, INPUT);
+
+  // Set LED pin as output
+  pinMode(LED_PIN, OUTPUT);
+
+  // Initialize LED state
+  digitalWrite(LED_PIN, LOW);
+}
+
+void loop() {
+  // Read sensor data
+  int jacinaS = analogRead(CURRENT_SENSOR_PIN);
+  int napon = analogRead(VOLTAGE_SENSOR_PIN);
+
+  // Send sensor data to Firebase under the specified path
+  firebase.setInt(DATABASE_PATH "/jacinaS", jacinaS);
+  firebase.setInt(DATABASE_PATH "/napon", napon);
+
+  // Check Firebase for LED control
+  if (firebase.getInt(DATABASE_PATH "/led") != -1) {
+    ledState = firebase.getInt(DATABASE_PATH "/led");
+    digitalWrite(LED_PIN, ledState ? HIGH : LOW);
+  }
+
+ 
+}
+
+void connectToWiFi() {
+  Serial.print("Connecting to Wi-Fi");
+  
+  // Connect to Wi-Fi network
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  // Wait until Wi-Fi is connected
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("Wi-Fi connected");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+}

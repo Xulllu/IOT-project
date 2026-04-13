@@ -1,0 +1,99 @@
+#include <WiFi.h>
+#include "ESP32Firebase.h"
+
+// Define Firebase project configuration
+#define FIREBASE_HOST "https://voltage-and-current-sensor-led-default-rtdb.europe-west1.firebasedatabase.app"
+
+// Define analog pin for current sensor
+#define CURRENT_SENSOR_PIN 33
+
+// Define analog pin for voltage sensor
+#define VOLTAGE_SENSOR_PIN 35
+
+// Define pin for LED
+#define LED_PIN 26
+
+bool isBlinking = false;  // Variable to track whether the LED should blink
+unsigned long previousMillis = 0;  // Last time the LED was updated
+const long interval = 500;  // Interval for blinking (500ms)
+
+// WiFi credentials
+const char* WIFI_SSID = "Mediasky Amel";
+const char* WIFI_PASSWORD = "Oklagija";
+
+// Define Firebase database paths
+#define DATABASE_PATH "/sensors/sensor1"  // Adjust the path as needed
+
+// Initialize Firebase
+Firebase firebase(FIREBASE_HOST);
+
+void setup() {
+  Serial.begin(115200);
+
+  // Connect to Wi-Fi
+  connectToWiFi();
+
+  // Set analog pins as inputs
+  pinMode(CURRENT_SENSOR_PIN, INPUT);
+  pinMode(VOLTAGE_SENSOR_PIN, INPUT);
+
+  // Set LED pin as output
+  pinMode(LED_PIN, OUTPUT);
+
+  // Initialize LED to ON (inverted logic)
+  digitalWrite(LED_PIN, HIGH);
+}
+
+void loop() {
+  // Read sensor data
+  int jacinaS = analogRead(CURRENT_SENSOR_PIN);
+  int napon = analogRead(VOLTAGE_SENSOR_PIN);
+
+  // Send sensor data to Firebase under the specified path
+  firebase.setInt(DATABASE_PATH "/jacinaS", jacinaS);
+  firebase.setInt(DATABASE_PATH "/napon", napon);
+
+  // Get Firebase value to control LED (ON/Blinking/Steady)
+  int ledControl = firebase.getInt(DATABASE_PATH "/led");
+  
+  if (ledControl != -1) {
+    if (ledControl == 0) {
+      isBlinking = true;  // Start blinking when "Turn Off" is pressed
+    } else if (ledControl == 1) {
+      isBlinking = false;  // Stop blinking when "Turn On" is pressed
+      digitalWrite(LED_PIN, HIGH);  // Ensure LED is ON (inverted logic)
+    }
+  }
+
+  // Handle blinking logic
+  if (isBlinking) {
+    unsigned long currentMillis = millis();
+
+    // Check if it's time to toggle the LED state
+    if (currentMillis - previousMillis >= interval) {
+      previousMillis = currentMillis;
+      
+      // Toggle the LED state for blinking
+      bool ledState = digitalRead(LED_PIN);  // Get the current state of the LED
+      digitalWrite(LED_PIN, !ledState);  // Toggle the state (inverted logic)
+    }
+  }
+}
+
+void connectToWiFi() {
+  Serial.print("Connecting to Wi-Fi");
+
+  // Connect to Wi-Fi network
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  // Wait until Wi-Fi is connected
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("Wi-Fi connected");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+}
